@@ -6,7 +6,7 @@ from datasets import load_dataset
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-from dataset.news_dataset import create_data_loader, preprocess, TextTokenizer, TextSummarizationDataset
+from datasets.news_dataset import create_data_loader, preprocess, TextTokenizer, TextSummarizationDataset
 
 nltk.download('stopwords')
 
@@ -15,7 +15,7 @@ def create_data_loader(args) :
 
     global stop_words
 
-    # Load the dataset
+    # Load the datasets
     dataset = load_dataset('QuyenAnhDE/data-for-text-summarization')
 
     print(dataset)
@@ -37,7 +37,7 @@ def create_data_loader(args) :
     # Print dataframe columns
     print(f"Columns : {df.columns}")
 
-    # Preprocess the dataset
+    # Preprocess the datasets
 
     # Removing Duplicates
     df.drop_duplicates(subset=['text'], inplace=True)

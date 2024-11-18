@@ -64,17 +64,26 @@ class TextSummarizationDataset(Dataset):
     def __getitem__(self, idx):
         if idx >= len(self.inputs):
             raise IndexError(f"Index {idx} is out of bounds for dataset of size {len(self.inputs)}.")
+
         input_text = self.inputs[idx]
         target_text = self.targets[idx]
 
-        # Tokenize and pad
+        # Tokenize and pad input (encoder sequence)
         input_sequence = self.input_tokenizer.texts_to_padded_sequences([input_text], self.max_length_input)[0]
+        input_mask = [1 if token != 0 else 0 for token in input_sequence]  # Mask for non-padding tokens
+
+        # Tokenize and pad target (decoder sequence)
         target_sequence = self.target_tokenizer.texts_to_padded_sequences([target_text], self.max_length_target)[0]
+        decoder_input_sequence = target_sequence[:-1]  # Exclude the last token for decoder input
+        decoder_output_sequence = target_sequence[1:]  # Exclude the first token for decoder output
+        decoder_mask = [1 if token != 0 else 0 for token in decoder_output_sequence]  # Mask for non-padding tokens
 
         return {
             'encoder_input': torch.tensor(input_sequence, dtype=torch.long),
-            'decoder_input': torch.tensor(target_sequence[:-1], dtype=torch.long),
-            'decoder_output': torch.tensor(target_sequence[1:], dtype=torch.long),
+            'encoder_mask': torch.tensor(input_mask, dtype=torch.long),
+            'decoder_input': torch.tensor(decoder_input_sequence, dtype=torch.long),
+            'decoder_output': torch.tensor(decoder_output_sequence, dtype=torch.long),
+            'decoder_mask': torch.tensor(decoder_mask, dtype=torch.long)
         }
 
 
@@ -98,7 +107,7 @@ def create_data_loader(args) :
     # Print dataframe columns
     print(f"Columns : {df.columns}")
 
-    # Preprocess the dataset
+    # Preprocess the datasets
     df.drop_duplicates(subset=['summary'], inplace=True)
     df.reset_index(inplace=True, drop=True)
     df['summary'] = df['summary'].apply(preprocess)
