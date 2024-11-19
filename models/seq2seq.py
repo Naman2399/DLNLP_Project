@@ -3,11 +3,21 @@ import torch.nn as nn
 
 # Define the Encoder
 class EncoderRNN(nn.Module):
-    def __init__(self, input_vocab_size, embed_size, hidden_size, num_layers, dropout=0.1):
+    def __init__(self, input_vocab_size, embed_size, hidden_size, num_layers, rc_unit, dropout=0.1):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.embedding = nn.Embedding(input_vocab_size, embed_size)
-        self.rnn = nn.GRU(embed_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
+        self.rc_unit = rc_unit
+
+        if self.rc_unit == 'rnn' :
+            self.rnn = nn.RNN(embed_size, hidden_size, num_layers, batch_first= True, dropout= dropout)
+        elif self.rc_unit == 'gru' :
+            self.rnn = nn.GRU(embed_size, hidden_size, num_layers, batch_first= True, dropout= dropout)
+        elif self.rc_unit == 'lstm' :
+            self.rnn = nn.LSTM(embed_size, hidden_size, num_layers, batch_first= True, dropout= dropout)
+        else :
+            print("Enter a valid RC unit name e.g. rnn, gru, lstm")
+            exit()
 
     def forward(self, x, x_mask):
         # x: (batch_size, seq_len)
@@ -18,11 +28,22 @@ class EncoderRNN(nn.Module):
 
 # Define the Decoder
 class DecoderRNN(nn.Module):
-    def __init__(self, output_vocab_size, embed_size, hidden_size, num_layers, dropout=0.1):
+    def __init__(self, output_vocab_size, embed_size, hidden_size, num_layers, rc_unit, dropout=0.1):
         super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.embedding = nn.Embedding(output_vocab_size, embed_size)
-        self.rnn = nn.GRU(embed_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
+        self.rc_unit = rc_unit
+
+        if self.rc_unit == 'rnn' :
+            self.rnn = nn.RNN(embed_size, hidden_size, num_layers, batch_first= True, dropout= dropout)
+        elif self.rc_unit == 'gru' :
+            self.rnn = nn.GRU(embed_size, hidden_size, num_layers, batch_first= True, dropout= dropout)
+        elif self.rc_unit == 'lstm' :
+            self.rnn = nn.LSTM(embed_size, hidden_size, num_layers, batch_first= True, dropout= dropout)
+        else :
+            print("Enter a valid RC unit name e.g. rnn, gru, lstm")
+            exit()
+
         self.fc = nn.Linear(hidden_size, output_vocab_size)
 
     def forward(self, x, hidden):
@@ -96,13 +117,14 @@ def main():
     MAX_INPUT_LENGTH = 5  # Length of input sequences
     MAX_OUTPUT_LENGTH = 6  # Length of output sequences (including <sos> and <eos>)
     BATCH_SIZE = 2  # Number of samples in a batch
+    RC_UNIT = 'lstm' # We have 3 different types of RNN units starting with rnn
 
     # Create device
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Initialize Encoder, Decoder, and Seq2Seq model
-    encoder = EncoderRNN(INPUT_VOCAB_SIZE, EMBED_SIZE, HIDDEN_SIZE, NUM_LAYERS).to(DEVICE)
-    decoder = DecoderRNN(OUTPUT_VOCAB_SIZE, EMBED_SIZE, HIDDEN_SIZE, NUM_LAYERS).to(DEVICE)
+    encoder = EncoderRNN(INPUT_VOCAB_SIZE, EMBED_SIZE, HIDDEN_SIZE, NUM_LAYERS, RC_UNIT).to(DEVICE)
+    decoder = DecoderRNN(OUTPUT_VOCAB_SIZE, EMBED_SIZE, HIDDEN_SIZE, NUM_LAYERS, RC_UNIT).to(DEVICE)
     seq2seq_model = Seq2Seq(encoder, decoder, DEVICE).to(DEVICE)
 
     # Dummy input and target sequences
@@ -127,3 +149,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    # Variables
+    # 1. Recurrent Unit Type,   2. Num of Layers,  3. batch_first = True
+    # N - Batch Size, L = sequence Length, H_in = input_size , H_out = hidden size
+    # RUT - RNN, GRU, LSTM

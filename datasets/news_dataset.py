@@ -179,7 +179,7 @@ def create_data_loader(args) :
         print(f"Token: {index}, Word: {word}")
 
 
-    return train_loader, val_loader, test_loader, x_tokenizer, y_tokenizer
+    return train_loader, val_loader, test_loader, x_tokenizer, y_tokenizer, max_length_x, max_length_y
 
 
 def run(args) :
