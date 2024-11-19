@@ -345,9 +345,9 @@ def run(args)  :
     # Training and Evaluation of Model
     for epoch in range(args.epochs) :
 
-        # epoch_train_loss = train_loop(data_loader= train_loader, model = args.model, optimizer= args.optimizer,
-        #            loss_function= args.loss_function, curr_epoch = epoch + 1, args= args,
-        #            decoder_tokenizer= y_tokenizer)
+        epoch_train_loss = train_loop(data_loader= train_loader, model = args.model, optimizer= args.optimizer,
+                   loss_function= args.loss_function, curr_epoch = epoch + 1, args= args,
+                   decoder_tokenizer= y_tokenizer)
 
         epoch_val_loss = evaluation(data_loader= val_loader, model = args.model, optimizer= args.optimizer,
                                     loss_function= args.loss_function, curr_epoch= epoch + 1, args = args,
