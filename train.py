@@ -180,23 +180,18 @@ def evaluation(data_loader, model, optimizer, loss_function, curr_epoch, encoder
         # Decode predictions and targets
         predictions = output.argmax(-1).detach().cpu().numpy()  # Predicted tokens
         targets = decoder_output.detach().cpu().numpy()  # Target tokens
-        src_inputs = encoder_input.detach().cpu().numpy() # Source Inputs
 
-        for pred, target, src_txt in zip(predictions, targets, src_inputs):
+        for pred, target in zip(predictions, targets):
 
             # Decode tokens
             pred = pred.tolist()
             target = target.tolist()
-            src_txt = src_txt.tolist()
 
             pred_text = [decoder_tokenizer.get_word_from_index(token) for token in pred if
                          decoder_tokenizer.get_word_from_index(token) not in ['<UNK>', 'end']]
             target_text = [decoder_tokenizer.get_word_from_index(token) for token in target if
                            decoder_tokenizer.get_word_from_index(token) not in ['<UNK>', 'end']]
-            source_text = [encoder_tokenizer.get_word_from_index(token) for token in src_txt if
-                           encoder_tokenizer.get_word_from_index(token) not in ['<UNK>', 'end']]
 
-            source_text = " ".join(source_text)
             pred_text = " ".join(pred_text)
             target_text = " ".join(target_text)
 
@@ -241,6 +236,60 @@ def evaluation(data_loader, model, optimizer, loss_function, curr_epoch, encoder
 
     if curr_epoch % 10 == 1 :
         print("Need to write script for some samples")
+
+        file_path = os.path.join(args.runs, args.exp_name, 'sample.txt')
+
+        # Write the string to the file
+        top_name = '-' * 20 + f'{split_type} : Epoch {curr_epoch}' + '-' * 20
+        with open(file_path, "a") as file:
+            file.write(top_name + "\n")
+
+        for batch in data_loader :
+            # Forward pass
+            encoder_input = batch['encoder_input'].to(args.device)
+            decoder_input = batch['decoder_input'].to(args.device)
+            decoder_output = batch['decoder_output'].to(args.device)
+            decoder_output_mask = batch['decoder_mask'].to(args.device)
+
+            # Depends completely on the predicted token to get next token
+            output = model(src=encoder_input, trg=decoder_input, use_teacher_forcing=False, use_only_predictions=True)
+
+            # Decode predictions and targets
+            predictions = output.argmax(-1).detach().cpu().numpy()  # Predicted tokens
+            targets = decoder_output.detach().cpu().numpy()  # Target tokens
+            src_inputs = encoder_input.detach().cpu().numpy()  # Source Inputs
+
+            cnt = 0
+            for pred, target, src_txt in zip(predictions, targets, src_inputs):
+
+                cnt += 1
+
+                # Decode tokens
+                pred = pred.tolist()
+                target = target.tolist()
+                src_txt = src_txt.tolist()
+
+                pred_text = [decoder_tokenizer.get_word_from_index(token) for token in pred if
+                             decoder_tokenizer.get_word_from_index(token) not in ['<UNK>', 'end']]
+                target_text = [decoder_tokenizer.get_word_from_index(token) for token in target if
+                               decoder_tokenizer.get_word_from_index(token) not in ['<UNK>', 'end']]
+                source_text = [encoder_tokenizer.get_word_from_index(token) for token in src_txt if
+                               encoder_tokenizer.get_word_from_index(token) not in ['<UNK>', 'end']]
+
+                source_text = " ".join(source_text)
+                pred_text = " ".join(pred_text)
+                target_text = " ".join(target_text)
+
+                data = f'Source : {source_text} \nTarget : {target_text} \nPrediction : {pred_text}'
+                with open(file_path, "a") as file:
+                    file.write(data + "\n")
+
+                if cnt == 5 :
+                    break
+
+            break
+
+
 
     return epoch_loss / len(data_loader)
 
@@ -296,9 +345,9 @@ def run(args)  :
     # Training and Evaluation of Model
     for epoch in range(args.epochs) :
 
-        epoch_train_loss = train_loop(data_loader= train_loader, model = args.model, optimizer= args.optimizer,
-                   loss_function= args.loss_function, curr_epoch = epoch + 1, args= args,
-                   decoder_tokenizer= y_tokenizer)
+        # epoch_train_loss = train_loop(data_loader= train_loader, model = args.model, optimizer= args.optimizer,
+        #            loss_function= args.loss_function, curr_epoch = epoch + 1, args= args,
+        #            decoder_tokenizer= y_tokenizer)
 
         epoch_val_loss = evaluation(data_loader= val_loader, model = args.model, optimizer= args.optimizer,
                                     loss_function= args.loss_function, curr_epoch= epoch + 1, args = args,
