@@ -1,0 +1,3 @@
+----------- Tensorboard ---------------------
+tensorboard --logdir=runs
+tensorboard --logdir=./ --host=10.192.12.61 --port=6001

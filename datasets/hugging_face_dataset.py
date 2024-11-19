@@ -77,9 +77,9 @@ def create_data_loader(args) :
     test_dataset = TextSummarizationDataset(X_test, y_test, x_tokenizer, y_tokenizer, max_length_x, max_length_y)
 
     # DataLoader
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=args.bs, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=args.bs, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=args.bs, shuffle=False)
 
     # Example usage
     for i, batch in enumerate(train_loader):
