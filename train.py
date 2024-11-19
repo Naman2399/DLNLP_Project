@@ -1,10 +1,226 @@
 import argparse
+from os.path import split
 
+import torch.optim as optim
+from tqdm import tqdm
+
+from losses.cross_entropy import CrossEntropyMasked
 from models.seq2seq import EncoderRNN, DecoderRNN, Seq2Seq
 from utilities.gpu_util import check_gpu_availability
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+from rouge import Rouge
 
-def train_loop() :
-    return
+
+def train_loop(data_loader, model, optimizer, loss_function, curr_epoch, decoder_tokenizer, args) :
+
+    pbar = tqdm(enumerate(data_loader), total= len(data_loader), desc = f'Training \t Epoch : {curr_epoch} / {args.epochs}', unit= 'batch')
+    epoch_loss = 0
+
+    model.train()
+
+    for idx, batch in pbar :
+
+        # To get details of the dataset
+
+        # print(f'Batch {idx} : ')
+        # print("Encoder input shape:", batch['encoder_input'].shape)  # (batch_size, max_length_input)
+        # print("Decoder input shape:", batch['decoder_input'].shape)  # (batch_size, max_length_target - 1)
+        # print("Decoder output shape:", batch['decoder_output'].shape)  # (batch_size, max_length_target - 1)
+        # print("Encoder mask shape:", batch['encoder_mask'].shape)   # (batch_size, max_length_input)
+        # print("Decoder input mask shape:", batch['decoder_mask'].shape) # (batch_size, max_length_target - 1)
+        # print("Decoder output mask shape : ", batch['decoder_output'].shape) # (batch_size, max_length_target - 1)
+        #
+        # print(f"-" * 30)
+        # print("Encoder Details : ")
+        # print(batch['encoder_input'][0])
+        # print("Decoder Details : ")
+        # print(batch['decoder_input'][0])
+        # print("Decoder Output :")
+        # print(batch['decoder_output'][0])
+
+        # Forward pass
+        encoder_input = batch['encoder_input'].to(args.device)
+        decoder_input = batch['decoder_input'].to(args.device)
+        decoder_output = batch['decoder_output'].to(args.device)
+        decoder_output_mask = batch['decoder_mask'].to(args.device)
+
+        if curr_epoch <= args.tf_epochs :
+            # Perform Teacher Forcing
+            output = model(src= encoder_input, trg= decoder_input, use_teacher_forcing=True)
+        elif curr_epoch > args.tf_epochs and curr_epoch <= args.tf_epochs + 10 :
+            # Perform Teach Forcing with probability of 0.5
+            output = model(src=encoder_input, trg= decoder_input, use_teacher_forcing=False, use_only_predictions=False)
+        else :
+            # Depends completely on the predicted token to get next token
+            output = model(src=encoder_input, trg= decoder_input, use_teacher_forcing=False, use_only_predictions=True)
+
+
+        # Computing Loss Function
+        loss = loss_function(logits = output, targets= decoder_output, mask= decoder_output_mask)
+
+        # Backward Pass
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Adding Details to progress bar
+        batch_size = encoder_input.shape[0]
+
+        # BLEU and ROUGE Score calculation
+        bleu_scores = []
+        rouge_scores = {
+            'rouge-1' : [] ,
+            'rouge-2' : [] ,
+            'rouge-l' : []
+        }
+
+        # Decode predictions and targets
+        predictions = output.argmax(-1).detach().cpu().numpy()  # Predicted tokens
+        targets = decoder_output.detach().cpu().numpy()  # Target tokens
+
+        for pred, target in zip(predictions, targets):
+            # Decode tokens
+
+            pred = pred.tolist()
+            target = target.tolist()
+
+            pred_text = [decoder_tokenizer.get_word_from_index(token) for token in pred if decoder_tokenizer.get_word_from_index(token) not in  ['<UNK>' , 'end']]
+            target_text = [decoder_tokenizer.get_word_from_index(token) for token in target if decoder_tokenizer.get_word_from_index(token) not in  ['<UNK>' , 'end']]
+
+            pred_text = " ".join(pred_text)
+            target_text = " ".join(target_text)
+
+            if not (len(pred_text) > 0 and len(target_text) > 0) :
+                continue
+
+            # BLEU Score
+            bleu_scores.append(
+                sentence_bleu(
+                    [target_text.split()],
+                    pred_text.split(),
+                    smoothing_function=SmoothingFunction().method1
+                )
+            )
+
+            # ROUGE Scores
+            rouge = Rouge()
+            scores = rouge.get_scores(pred_text, target_text)
+            rouge_scores["rouge-1"].append(scores[0]["rouge-1"]['f'])
+            rouge_scores["rouge-2"].append(scores[0]["rouge-2"]['f'])
+            rouge_scores["rouge-l"].append(scores[0]["rouge-l"]['f'])
+
+        # Compute average BLEU and ROUGE scores
+        avg_bleu = sum(bleu_scores) / len(bleu_scores) if bleu_scores else 0
+        avg_rouge_1 = sum(rouge_scores["rouge-1"]) / len(rouge_scores["rouge-1"]) if rouge_scores["rouge-1"] else 0
+        avg_rouge_2 = sum(rouge_scores["rouge-2"]) / len(rouge_scores["rouge-2"]) if rouge_scores["rouge-2"] else 0
+        avg_rouge_l = sum(rouge_scores["rouge-l"]) / len(rouge_scores["rouge-l"]) if rouge_scores["rouge-l"] else 0
+
+        # print(
+        #     f"Avg BLEU: {avg_bleu:.4f}, Avg ROUGE-1: {avg_rouge_1:.4f}, Avg ROUGE-2: {avg_rouge_2:.4f}, Avg ROUGE-L: {avg_rouge_l:.4f}")
+
+
+        pbar.set_postfix({
+            'Loss': loss.item() / batch_size ,
+            'Avg BLEU :' : f'{avg_bleu:.4f}',
+            'Avg ROUGE-1' : f'{avg_rouge_1:.4f}',
+            'Avg ROUGE-2' : f'{avg_rouge_2:.4f}',
+            'Avg ROUGE-L' : f'{avg_rouge_l:.4f}'
+        })
+        epoch_loss += loss.item()
+
+    return epoch_loss / len(data_loader)
+
+def evaluation(data_loader, model, optimizer, loss_function, curr_epoch, decoder_tokenizer, args, split_type) :
+
+    model.eval()
+
+    if split_type not in ['val', 'test'] :
+        print("Enter a valid split type e.g. val or test ")
+        exit()
+
+    pbar = tqdm(enumerate(data_loader), total= len(data_loader), desc=f'{split_type} \t Epoch : {curr_epoch} / {args.epochs}', unit='batch')
+    epoch_loss = 0
+
+    for idx, batch in pbar :
+
+        # Forward pass
+        encoder_input = batch['encoder_input'].to(args.device)
+        decoder_input = batch['decoder_input'].to(args.device)
+        decoder_output = batch['decoder_output'].to(args.device)
+        decoder_output_mask = batch['decoder_mask'].to(args.device)
+
+        # Depends completely on the predicted token to get next token
+        output = model(src=encoder_input, trg=decoder_input, use_teacher_forcing=False, use_only_predictions=True)
+
+        # Computing Loss Function
+        loss = loss_function(logits = output, targets= decoder_output, mask= decoder_output_mask)
+
+        # Adding Details to progress bar
+        batch_size = encoder_input.shape[0]
+
+        # BLEU and ROUGE Score calculation
+        bleu_scores = []
+        rouge_scores = {
+            'rouge-1' : [] ,
+            'rouge-2' : [] ,
+            'rouge-l' : []
+        }
+
+        # Decode predictions and targets
+        predictions = output.argmax(-1).detach().cpu().numpy()  # Predicted tokens
+        targets = decoder_output.detach().cpu().numpy()  # Target tokens
+
+        for pred, target in zip(predictions, targets):
+
+            # Decode tokens
+            pred = pred.tolist()
+            target = target.tolist()
+
+            pred_text = [decoder_tokenizer.get_word_from_index(token) for token in pred if
+                         decoder_tokenizer.get_word_from_index(token) not in ['<UNK>', 'end']]
+            target_text = [decoder_tokenizer.get_word_from_index(token) for token in target if
+                           decoder_tokenizer.get_word_from_index(token) not in ['<UNK>', 'end']]
+
+            pred_text = " ".join(pred_text)
+            target_text = " ".join(target_text)
+
+            if not (len(pred_text) > 0 and len(target_text) > 0) :
+                continue
+
+            # BLEU Score
+            bleu_scores.append(
+                sentence_bleu(
+                    [target_text.split()],
+                    pred_text.split(),
+                    smoothing_function=SmoothingFunction().method1
+                )
+            )
+
+            # ROUGE Scores
+            rouge = Rouge()
+            scores = rouge.get_scores(pred_text, target_text)
+            rouge_scores["rouge-1"].append(scores[0]["rouge-1"]['f'])
+            rouge_scores["rouge-2"].append(scores[0]["rouge-2"]['f'])
+            rouge_scores["rouge-l"].append(scores[0]["rouge-l"]['f'])
+
+        # Compute average BLEU and ROUGE scores
+        avg_bleu = sum(bleu_scores) / len(bleu_scores) if bleu_scores else 0
+        avg_rouge_1 = sum(rouge_scores["rouge-1"]) / len(rouge_scores["rouge-1"]) if rouge_scores["rouge-1"] else 0
+        avg_rouge_2 = sum(rouge_scores["rouge-2"]) / len(rouge_scores["rouge-2"]) if rouge_scores["rouge-2"] else 0
+        avg_rouge_l = sum(rouge_scores["rouge-l"]) / len(rouge_scores["rouge-l"]) if rouge_scores["rouge-l"] else 0
+
+
+        pbar.set_postfix({
+            'Loss': loss.item() / batch_size ,
+            'Avg BLEU :' : f'{avg_bleu:.4f}',
+            'Avg ROUGE-1' : f'{avg_rouge_1:.4f}',
+            'Avg ROUGE-2' : f'{avg_rouge_2:.4f}',
+            'Avg ROUGE-L' : f'{avg_rouge_l:.4f}'
+        })
+        epoch_loss += loss.item()
+
+    return epoch_loss / len(data_loader)
+
 
 def load_dataset(args) :
     if args.dataset_name == 'news' :
@@ -34,15 +250,35 @@ def run(args)  :
         EMBED_SIZE = args.embed_size
         HIDDEN_SIZE = args.hidden_size
         NUM_LAYERS = args.rc_layers
-        MAX_INPUT_LENGTH = max_input_length  # Length of input sequences
-        MAX_OUTPUT_LENGTH = max_output_length  # Length of output sequences (including <sos> and <eos>)
-        BATCH_SIZE = args.bs
         RC_UNIT = args.rc_unit  # We have 3 different types of RNN units starting with rnn
 
         # Initialize Encoder, Decoder, and Seq2Seq model
         encoder = EncoderRNN(INPUT_VOCAB_SIZE, EMBED_SIZE, HIDDEN_SIZE, NUM_LAYERS, RC_UNIT).to(args.device)
         decoder = DecoderRNN(OUTPUT_VOCAB_SIZE, EMBED_SIZE, HIDDEN_SIZE, NUM_LAYERS, RC_UNIT).to(args.device)
         seq2seq_model = Seq2Seq(encoder, decoder, args.device).to(args.device)
+        args.model = seq2seq_model
+
+
+        # ----------------------------------- Optimizer and Loss Function Initializer ----------------------------
+        args.optimizer = optim.Adam(seq2seq_model.parameters(), lr=args.lr)
+
+        if args.loss == 'cross_entropy' :
+            args.loss_function = CrossEntropyMasked()
+
+    # Training and Evaluation of Model
+    for epoch in range(args.epochs) :
+
+        epoch_train_loss = train_loop(data_loader= train_loader, model = args.model, optimizer= args.optimizer,
+                   loss_function= args.loss_function, curr_epoch = epoch + 1, args= args,
+                   decoder_tokenizer= y_tokenizer)
+
+        epoch_val_loss = evaluation(data_loader= val_loader, model = args.model, optimizer= args.optimizer,
+                                    loss_function= args.loss_function, curr_epoch= epoch + 1, args = args,
+                                    decoder_tokenizer= y_tokenizer, split_type= 'val')
+
+        epoch_test_loss = evaluation(data_loader= test_loader, model = args.model, optimizer= args.optimizer,
+                                    loss_function= args.loss_function, curr_epoch= epoch + 1, args = args,
+                                    decoder_tokenizer= y_tokenizer, split_type= 'test')
 
 
 
@@ -68,12 +304,18 @@ if __name__ == '__main__' :
 
     # --------------------- Other Arguments ----------------------------------
     parser.add_argument('--bs', type=int, default=32, help="Batch size ")
-
+    parser.add_argument('--loss', type = str, default= 'cross_entropy', help='Different Loss Functions to be defined')
+    parser.add_argument('--epochs', type= int, default= 100, help = 'Total epochs to run')
+    parser.add_argument('--tf_epochs', type= int, default= 20, help = 'Initialize to trianing model using teacher forcing ')
+    parser.add_argument('--lr', type = float, default = 1e-4, help = 'Defining Learning Rate for model')
     args = parser.parse_args()
 
     # Assign GPU device
     gpu_ls = check_gpu_availability(required_space_gb=10, required_gpus=1)
     args.device  = f'cuda:{gpu_ls[0]}'
+
+    # Assert Condition
+    assert args.tf_epochs < args.epochs
 
     # Argument Details
     print("-" * 20, "Arguments", "-" * 20)

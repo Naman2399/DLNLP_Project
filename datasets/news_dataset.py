@@ -35,9 +35,13 @@ def preprocess(text):
 class TextTokenizer:
     def __init__(self):
         self.tokenizer = Tokenizer()
+        self.word_index = {}
+        self.index_word = {}
 
     def fit(self, texts):
         self.tokenizer.fit_on_texts(texts)
+        self.word_index = self.tokenizer.word_index  # Word to index mapping
+        self.index_word = {v: k for k, v in self.word_index.items()}  # Index to word mapping
 
     def texts_to_padded_sequences(self, texts, maxlen):
         sequences = self.tokenizer.texts_to_sequences(texts)
@@ -45,6 +49,12 @@ class TextTokenizer:
 
     def get_vocab_size(self):
         return len(self.tokenizer.word_index) + 1
+
+    def get_word_from_index(self, index):
+        """
+        Get the word corresponding to an index.
+        """
+        return self.index_word.get(index, "<UNK>")  # Return <UNK> if index is not found
 
 
 # Dataset class
