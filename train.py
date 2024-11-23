@@ -18,6 +18,7 @@ from utilities.gpu_util import check_gpu_availability
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import time
 import json
+from transformers import AutoTokenizer, PegasusForConditionalGeneration
 
 
 
@@ -365,6 +366,26 @@ def gigaword_dataset(args) :
         tokenizer = AutoTokenizer.from_pretrained("RenZHU/t5-small-finetuned-xsum")
         model = AutoModelForSeq2SeqLM.from_pretrained("RenZHU/t5-small-finetuned-xsum")
 
+    if args.model_type == 't5' :
+        tokenizer = AutoTokenizer.from_pretrained("sysresearch101/t5-large-finetuned-xsum-cnn")
+        model = AutoModelForSeq2SeqLM.from_pretrained("sysresearch101/t5-large-finetuned-xsum-cnn")
+
+    if args.model_type == 'roberta' :
+        tokenizer = AutoTokenizer.from_pretrained("patrickvonplaten/roberta_shared_bbc_xsum")
+        model = AutoModelForSeq2SeqLM.from_pretrained("patrickvonplaten/roberta_shared_bbc_xsum")
+
+    if args.model_type == 'bart_large' :
+        tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-xsum")
+        model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-xsum")
+
+    if args.model_type == 'bart_large_sum' :
+        tokenizer = AutoTokenizer.from_pretrained("lidiya/bart-large-xsum-samsum")
+        model = AutoModelForSeq2SeqLM.from_pretrained("lidiya/bart-large-xsum-samsum")
+
+    if args.model_type == 'pegasus' :
+        model = PegasusForConditionalGeneration.from_pretrained("google/pegasus-xsum")
+        tokenizer = AutoTokenizer.from_pretrained("google/pegasus-xsum")
+
     # Calculate the total number of parameters
     total_params = sum(p.numel() for p in model.parameters())
 
@@ -588,7 +609,7 @@ if __name__ == '__main__' :
                         help="raw csv file details")
 
     # ------------------ Model Arguments ---------------------------------
-    parser.add_argument('--model_type', type= str, default= 't5_small',
+    parser.add_argument('--model_type', type= str, default= 'pegasus',
                         help='We have different model_type e.g. seq2seq, seq2seq_attn, transformer, '
                              't5_small, t5, roberta, bart_large, bart_large_sum, distill_bart, pegasus')
     parser.add_argument('--rc_unit', type= str, default= 'lstm', help = 'We have 3 options for this part e.g. rnn, gru, lstm')
@@ -627,7 +648,7 @@ if __name__ == '__main__' :
         exp_name = f"dataset_{args.dataset_name}/model_{args.model_type}_rcu_{args.rc_unit}_loss_{args.loss}_lr_{args.lr}_emb_{args.embed_size}_hs_{args.hidden_size}_stk_{args.rc_layers}"
     if args.model_type in ['transformer'] :
         exp_name = f"dataset_{args.dataset_name}/model_{args.model_type}_loss_{args.loss}_lr_{args.lr}_emb_{args.embed_size}"
-    if args.model_type in ['t5_small'] :
+    if args.model_type in ['t5_small', 't5', 'roberta', 'bart_large', 'bart_large_sum', 'pegasus'] :
         exp_name = f"dataset_{args.dataset_name}/model_{args.model_type}"
 
     args.exp_name = exp_name
