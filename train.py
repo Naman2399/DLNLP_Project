@@ -440,8 +440,6 @@ def gigaword_dataset(args) :
         rougel.append(scores[0]["rouge-l"]['f'])
         inference_time.append(end - start)
 
-        break
-
     data_dict = {
         'bleu' : sum(bleu) / cnt,
         'rouge1' : sum(rouge1) / cnt,
@@ -453,7 +451,7 @@ def gigaword_dataset(args) :
 
     # Write to a JSON file
     file_path = os.path.join(args.result, args.exp_name, "output_metrics.json")
-    os.makedirs(os.path.join(args.result, args.exp_name))
+    os.makedirs(os.path.join(args.result, args.exp_name), exist_ok= True)
     with open(file_path, "w") as json_file:
         json.dump(data_dict, json_file, indent=4)
 

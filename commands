@@ -1,0 +1,8 @@
+python train.py --dataset_name gigaword --model_type t5_small
+python train.py --dataset_name gigaword --model_type t5
+python train.py --dataset_name gigaword --model_type roberta
+python train.py --dataset_name gigaword --model_type bart_large
+python train.py --dataset_name gigaword --model_type bart_large_sum
+python train.py --dataset_name gigaword --model_type distill_bart
+python train.py --dataset_name gigaword --model_type pegasus
+
