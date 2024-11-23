@@ -14,4 +14,12 @@ python train.py --dataset_name xsum --model_type bart_large_sum
 python train.py --dataset_name xsum --model_type distill_bart
 python train.py --dataset_name xsum --model_type pegasus
 
+python train.py --dataset_name news --model_type t5_small
+python train.py --dataset_name news --model_type t5
+python train.py --dataset_name news --model_type roberta
+python train.py --dataset_name news --model_type bart_large
+python train.py --dataset_name news --model_type bart_large_sum
+python train.py --dataset_name news --model_type distill_bart
+python train.py --dataset_name news --model_type pegasus
+
 
