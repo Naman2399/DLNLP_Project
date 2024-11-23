@@ -2,11 +2,11 @@ import argparse
 
 import nltk
 import pandas as pd
-from datasets import load_dataset
+from dataset import load_dataset
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-from datasets.news_dataset import create_data_loader, preprocess, TextTokenizer, TextSummarizationDataset
+from dataset.news_dataset import create_data_loader, preprocess, TextTokenizer, TextSummarizationDataset
 
 nltk.download('stopwords')
 
@@ -15,7 +15,7 @@ def create_data_loader(args) :
 
     global stop_words
 
-    # Load the datasets
+    # Load the dataset
     dataset = load_dataset('QuyenAnhDE/data-for-text-summarization')
 
     print(dataset)
@@ -37,7 +37,7 @@ def create_data_loader(args) :
     # Print dataframe columns
     print(f"Columns : {df.columns}")
 
-    # Preprocess the datasets
+    # Preprocess the dataset
 
     # Removing Duplicates
     df.drop_duplicates(subset=['text'], inplace=True)
@@ -71,7 +71,7 @@ def create_data_loader(args) :
     print(f"Training samples: {len(X_train)}, Validation samples: {len(X_val)}, Test samples: {len(X_test)}")
     print(f"Max input length: {max_length_x}, Max target length: {max_length_y}")
 
-    # Create datasets
+    # Create dataset
     train_dataset = TextSummarizationDataset(X_train, y_train, x_tokenizer, y_tokenizer, max_length_x, max_length_y)
     val_dataset = TextSummarizationDataset(X_val, y_val, x_tokenizer, y_tokenizer, max_length_x, max_length_y)
     test_dataset = TextSummarizationDataset(X_test, y_test, x_tokenizer, y_tokenizer, max_length_x, max_length_y)

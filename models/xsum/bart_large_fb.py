@@ -1,8 +1,8 @@
 # Load model directly
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-tokenizer = AutoTokenizer.from_pretrained("RenZHU/t5-small-finetuned-xsum")
-model = AutoModelForSeq2SeqLM.from_pretrained("RenZHU/t5-small-finetuned-xsum")
+tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-xsum")
+model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-xsum")
 
 ARTICLE_TO_SUMMARIZE = ("japan 's nec corp. and unk computer corp. of the united states said wednesday they had agreed to join forces in supercomputer sales .")
 inputs = tokenizer(ARTICLE_TO_SUMMARIZE, max_length=1024, return_tensors="pt")

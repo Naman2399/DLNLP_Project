@@ -5,6 +5,7 @@ import contractions
 import nltk
 import pandas as pd
 import torch
+from keras.src.ops import dtype
 from nltk.corpus import stopwords
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -85,15 +86,17 @@ class TextSummarizationDataset(Dataset):
         # Tokenize and pad target (decoder sequence)
         target_sequence = self.target_tokenizer.texts_to_padded_sequences([target_text], self.max_length_target)[0]
         decoder_input_sequence = target_sequence[:-1]  # Exclude the last token for decoder input
+        decoder_input_mask = [1 if token != 0 else 0 for token in decoder_input_sequence]
         decoder_output_sequence = target_sequence[1:]  # Exclude the first token for decoder output
-        decoder_mask = [1 if token != 0 else 0 for token in decoder_output_sequence]  # Mask for non-padding tokens
+        decoder_output_mask = [1 if token != 0 else 0 for token in decoder_output_sequence]  # Mask for non-padding tokens
 
         return {
             'encoder_input': torch.tensor(input_sequence, dtype=torch.long),
             'encoder_mask': torch.tensor(input_mask, dtype=torch.long),
             'decoder_input': torch.tensor(decoder_input_sequence, dtype=torch.long),
+            'decoder_input_mask' : torch.tensor(decoder_input_mask, dtype= torch.long),
             'decoder_output': torch.tensor(decoder_output_sequence, dtype=torch.long),
-            'decoder_mask': torch.tensor(decoder_mask, dtype=torch.long)
+            'decoder_output_mask': torch.tensor(decoder_output_mask, dtype=torch.long)
         }
 
 
@@ -117,7 +120,7 @@ def create_data_loader(args) :
     # Print dataframe columns
     print(f"Columns : {df.columns}")
 
-    # Preprocess the datasets
+    # Preprocess the dataset
     df.drop_duplicates(subset=['summary'], inplace=True)
     df.reset_index(inplace=True, drop=True)
     df['summary'] = df['summary'].apply(preprocess)
@@ -144,7 +147,7 @@ def create_data_loader(args) :
     print(f"Training samples: {len(X_train)}, Validation samples: {len(X_val)}, Test samples: {len(X_test)}")
     print(f"Max input length: {max_length_x}, Max target length: {max_length_y}")
 
-    # Create datasets
+    # Create dataset
     train_dataset = TextSummarizationDataset(X_train, y_train, x_tokenizer, y_tokenizer, max_length_x, max_length_y)
     val_dataset = TextSummarizationDataset(X_val, y_val, x_tokenizer, y_tokenizer, max_length_x, max_length_y)
     test_dataset = TextSummarizationDataset(X_test, y_test, x_tokenizer, y_tokenizer, max_length_x, max_length_y)

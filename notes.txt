@@ -1,3 +1,14 @@
 ----------- Tensorboard ---------------------
 tensorboard --logdir=runs
 tensorboard --logdir=./ --host=10.192.12.61 --port=6001
+
+
+------------ Dataset [gigaword] ---------------------
+Models List -
+t5_small
+t5
+roberta
+bart_large
+bart_large_sum
+distill_bart
+pegasus
