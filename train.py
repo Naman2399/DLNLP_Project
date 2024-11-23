@@ -2,6 +2,7 @@ import argparse
 import os.path
 from os.path import split
 
+import pandas as pd
 import torch
 import torch.optim as optim
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
@@ -382,6 +383,10 @@ def gigaword_dataset(args) :
         tokenizer = AutoTokenizer.from_pretrained("lidiya/bart-large-xsum-samsum")
         model = AutoModelForSeq2SeqLM.from_pretrained("lidiya/bart-large-xsum-samsum")
 
+    if args.model_type == 'distill_bart' :
+        tokenizer = AutoTokenizer.from_pretrained("sshleifer/distilbart-xsum-12-1")
+        model = AutoModelForSeq2SeqLM.from_pretrained("sshleifer/distilbart-xsum-12-1")
+        
     if args.model_type == 'pegasus' :
         model = PegasusForConditionalGeneration.from_pretrained("google/pegasus-xsum")
         tokenizer = AutoTokenizer.from_pretrained("google/pegasus-xsum")
@@ -459,10 +464,121 @@ def gigaword_dataset(args) :
 
     return
 
+def xsum_dataset(args) :
+    # Load Model
+    if args.model_type == 't5_small':
+        tokenizer = AutoTokenizer.from_pretrained("RenZHU/t5-small-finetuned-xsum")
+        model = AutoModelForSeq2SeqLM.from_pretrained("RenZHU/t5-small-finetuned-xsum")
+
+    if args.model_type == 't5':
+        tokenizer = AutoTokenizer.from_pretrained("sysresearch101/t5-large-finetuned-xsum-cnn")
+        model = AutoModelForSeq2SeqLM.from_pretrained("sysresearch101/t5-large-finetuned-xsum-cnn")
+
+    if args.model_type == 'roberta':
+        tokenizer = AutoTokenizer.from_pretrained("patrickvonplaten/roberta_shared_bbc_xsum")
+        model = AutoModelForSeq2SeqLM.from_pretrained("patrickvonplaten/roberta_shared_bbc_xsum")
+
+    if args.model_type == 'bart_large':
+        tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-xsum")
+        model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-xsum")
+
+    if args.model_type == 'bart_large_sum':
+        tokenizer = AutoTokenizer.from_pretrained("lidiya/bart-large-xsum-samsum")
+        model = AutoModelForSeq2SeqLM.from_pretrained("lidiya/bart-large-xsum-samsum")
+
+    if args.model_type == 'distill_bart' :
+        tokenizer = AutoTokenizer.from_pretrained("sshleifer/distilbart-xsum-12-1")
+        model = AutoModelForSeq2SeqLM.from_pretrained("sshleifer/distilbart-xsum-12-1")
+
+    if args.model_type == 'pegasus':
+        model = PegasusForConditionalGeneration.from_pretrained("google/pegasus-xsum")
+        tokenizer = AutoTokenizer.from_pretrained("google/pegasus-xsum")
+
+    # Calculate the total number of parameters
+    total_params = sum(p.numel() for p in model.parameters())
+
+    df = pd.read_csv('dataset/xsum/xsum.csv')
+    bleu = []
+    rouge1 = []
+    rouge2 = []
+    rougel = []
+    inference_time = []
+    cnt = 0
+
+    print(df.columns)
+    print(df.head())
+
+    for index, row in df.iterrows():
+        cnt += 1
+        document = row['input']  # Access the 'document' column
+        summary = row['target']  # Access the 'summary' column
+
+        print(f"Line {index + 1}:")
+        print(f"Document: {document}")
+        print(f"Summary: {summary}")
+        print("-" * 30)
+
+        inputs = tokenizer(document, max_length=1024, return_tensors="pt")
+        # Generate Summary
+        start = time.time()
+        summary_ids = model.generate(inputs["input_ids"])
+        end = time.time()
+
+        outputs = tokenizer.batch_decode(summary_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+
+        # Get Details of the following file
+        # Inference Time, BELU, ROUGE1, ROUGE2, ROUGE-L
+
+        pred_text = outputs
+        target_text = summary
+
+        # BLEU Score
+        bleu.append(
+            sentence_bleu(
+                [target_text.split()],
+                pred_text.split(),
+                smoothing_function=SmoothingFunction().method1
+            )
+        )
+
+        # ROUGE Scores
+        rouge = Rouge()
+        scores = rouge.get_scores(pred_text, target_text)
+        rouge1.append(scores[0]["rouge-1"]['f'])
+        rouge2.append(scores[0]["rouge-2"]['f'])
+        rougel.append(scores[0]["rouge-l"]['f'])
+        inference_time.append(end - start)
+
+        break
+
+    data_dict = {
+        'bleu': sum(bleu) / cnt,
+        'rouge1': sum(rouge1) / cnt,
+        'rouge2': sum(rouge2) / cnt,
+        'rougel': sum(rougel) / cnt,
+        'inference_time': sum(inference_time) / cnt,
+        'total params': total_params
+    }
+
+    # Write to a JSON file
+    file_path = os.path.join(args.result, args.exp_name, "output_metrics.json")
+    os.makedirs(os.path.join(args.result, args.exp_name), exist_ok=True)
+    with open(file_path, "w") as json_file:
+        json.dump(data_dict, json_file, indent=4)
+
+    print("Data successfully written to output_metrics.json")
+
+    return
+
+
 def run(args)  :
 
     if args.dataset_name in ['gigaword'] :
         gigaword_dataset(args)
+        return
+
+    if args.dataset_name in ['xsum'] :
+        xsum_dataset(args)
         return
 
     # Load Dataset
@@ -598,7 +714,7 @@ if __name__ == '__main__' :
     parser = argparse.ArgumentParser()
 
     # ------------------- Dataset Arguments -----------------------------------------
-    parser.add_argument('--dataset_name', type= str, default= 'gigaword', help = 'Options : news, hugging_face, gigaword')
+    parser.add_argument('--dataset_name', type= str, default= 'xsum', help = 'Options : news, hugging_face, gigaword, xsum')
     parser.add_argument('--summary_csv', type=str,
                         default='/mnt/hdd/karmpatel/naman/demo/DLNLP_Project_Data/news/news_summary.csv',
                         help="summary file contents")
@@ -646,7 +762,7 @@ if __name__ == '__main__' :
         exp_name = f"dataset_{args.dataset_name}/model_{args.model_type}_rcu_{args.rc_unit}_loss_{args.loss}_lr_{args.lr}_emb_{args.embed_size}_hs_{args.hidden_size}_stk_{args.rc_layers}"
     if args.model_type in ['transformer'] :
         exp_name = f"dataset_{args.dataset_name}/model_{args.model_type}_loss_{args.loss}_lr_{args.lr}_emb_{args.embed_size}"
-    if args.model_type in ['t5_small', 't5', 'roberta', 'bart_large', 'bart_large_sum', 'pegasus'] :
+    if args.model_type in ['t5_small', 't5', 'roberta', 'bart_large', 'bart_large_sum', 'pegasus', 'distill_bart'] :
         exp_name = f"dataset_{args.dataset_name}/model_{args.model_type}"
 
     args.exp_name = exp_name
