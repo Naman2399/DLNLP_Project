@@ -1,5 +1,6 @@
 import argparse
 import os.path
+from functools import total_ordering
 from os.path import split
 
 import pandas as pd
@@ -16,7 +17,7 @@ from losses.cross_entropy import CrossEntropyMasked
 from models.seq2seq import EncoderRNN, DecoderRNN, Seq2Seq
 from models.transformer import TransformerModel, generate_square_subsequent_mask
 from utilities.gpu_util import check_gpu_availability
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline, AutoModel
 import time
 import json
 from transformers import AutoTokenizer, PegasusForConditionalGeneration
@@ -363,36 +364,32 @@ def load_dataset(args) :
 def gigaword_dataset(args) :
 
     # Load Model
-    if args.model_type == 't5_small':
-        tokenizer = AutoTokenizer.from_pretrained("RenZHU/t5-small-finetuned-xsum")
-        model = AutoModelForSeq2SeqLM.from_pretrained("RenZHU/t5-small-finetuned-xsum")
 
     if args.model_type == 't5' :
-        tokenizer = AutoTokenizer.from_pretrained("sysresearch101/t5-large-finetuned-xsum-cnn")
-        model = AutoModelForSeq2SeqLM.from_pretrained("sysresearch101/t5-large-finetuned-xsum-cnn")
+        pipe = pipeline("text2text-generation", model="soumagok/flan-t5-base-gigaword")
+        model = None
 
     if args.model_type == 'roberta' :
-        tokenizer = AutoTokenizer.from_pretrained("patrickvonplaten/roberta_shared_bbc_xsum")
-        model = AutoModelForSeq2SeqLM.from_pretrained("patrickvonplaten/roberta_shared_bbc_xsum")
+        tokenizer = AutoTokenizer.from_pretrained("google/roberta2roberta_L-24_gigaword")
+        model = AutoModelForSeq2SeqLM.from_pretrained("google/roberta2roberta_L-24_gigaword")
 
     if args.model_type == 'bart_large' :
-        tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-xsum")
-        model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-xsum")
-
-    if args.model_type == 'bart_large_sum' :
-        tokenizer = AutoTokenizer.from_pretrained("lidiya/bart-large-xsum-samsum")
-        model = AutoModelForSeq2SeqLM.from_pretrained("lidiya/bart-large-xsum-samsum")
+        tokenizer = AutoTokenizer.from_pretrained("a1noack/bart-large-gigaword")
+        model = AutoModel.from_pretrained("a1noack/bart-large-gigaword")
 
     if args.model_type == 'distill_bart' :
         tokenizer = AutoTokenizer.from_pretrained("sshleifer/distilbart-xsum-12-1")
         model = AutoModelForSeq2SeqLM.from_pretrained("sshleifer/distilbart-xsum-12-1")
 
     if args.model_type == 'pegasus' :
-        model = PegasusForConditionalGeneration.from_pretrained("google/pegasus-xsum")
-        tokenizer = AutoTokenizer.from_pretrained("google/pegasus-xsum")
+        tokenizer = AutoTokenizer.from_pretrained("google/pegasus-gigaword")
+        model = AutoModelForSeq2SeqLM.from_pretrained("google/pegasus-gigaword")
 
     # Calculate the total number of parameters
-    total_params = sum(p.numel() for p in model.parameters())
+    if model is not None :
+        total_params = sum(p.numel() for p in model.parameters())
+    else :
+        total_params = 0
 
     from dataset.gigaword import load_dataset
     df = load_dataset() # Here dataset contains two columns "document" and "summary".
@@ -414,13 +411,19 @@ def gigaword_dataset(args) :
         print(f"Summary: {summary}")
         print("-" * 30)
 
-        inputs = tokenizer(document, max_length=1024, return_tensors="pt")
-        # Generate Summary
-        start = time.time()
-        summary_ids = model.generate(inputs["input_ids"])
-        end = time.time()
-
-        outputs = tokenizer.batch_decode(summary_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+        if args.model_type == 't5' :
+            # Generate Summary
+            start = time.time()
+            outputs = pipe(document, max_length=100, clean_up_tokenization_spaces=True)
+            outputs = outputs[0]['generated_text']
+            end = time.time()
+        else :
+            inputs = tokenizer(document, max_length=1024, return_tensors="pt")
+            # Generate Summary
+            start = time.time()
+            summary_ids = model.generate(inputs["input_ids"])
+            end = time.time()
+            outputs = tokenizer.batch_decode(summary_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
 
         # Get Details of the following file
         # Inference Time, BELU, ROUGE1, ROUGE2, ROUGE-L
@@ -472,8 +475,8 @@ def xsum_dataset(args) :
         model = AutoModelForSeq2SeqLM.from_pretrained("RenZHU/t5-small-finetuned-xsum")
 
     if args.model_type == 't5':
-        tokenizer = AutoTokenizer.from_pretrained("sysresearch101/t5-large-finetuned-xsum-cnn")
-        model = AutoModelForSeq2SeqLM.from_pretrained("sysresearch101/t5-large-finetuned-xsum-cnn")
+        tokenizer = AutoTokenizer.from_pretrained("svetaku/mt5-small-finetuned-news-summary-kaggle")
+        model = AutoModelForSeq2SeqLM.from_pretrained("svetaku/mt5-small-finetuned-news-summary-kaggle")
 
     if args.model_type == 'roberta':
         tokenizer = AutoTokenizer.from_pretrained("patrickvonplaten/roberta_shared_bbc_xsum")
