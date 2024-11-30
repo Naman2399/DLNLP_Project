@@ -24,7 +24,14 @@ The objective is to identify the most efficient and accurate model for abstracti
 - Task involves generating short, headline-like summaries.
 
 ## Commands to Reproduce the Results
-### 1. Preprocess the Data
+
+### 1. Create Conda Env 
+
+```html
+conda env create -f environment.yml
+```
+
+### 2. Preprocess the Data
 We have preprocessed the datasets for XSUM and Gigaword, and the processed files are stored in the following directories:
 
 #### Gigaword
@@ -35,7 +42,7 @@ Each row contains `document` and `summary` columns.
 Preprocessed files are located in the directory : `dataset/xsum/xsum.csv`. 
 Each row contains `input` and `target` columns.
 
-### 2. Commands to reproduce the evaluation results
+### 3. Commands to reproduce the evaluation results
 
 ```html
 python train.py --dataset_name gigaword --model_type t5 --eval_ok True
@@ -59,7 +66,7 @@ python train.py --dataset_name gigaword --model_type pegasus --eval_ok True
 
 For reproducing results for xsum replace `gigaword` to `xsum`
 
-### 3. Results
+### 4. Results
 All the results are save into the `result/[dataset_name]/[model_type]/output_metrics.json`
 
 **XSUM** dataset 
