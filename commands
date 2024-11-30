@@ -1,19 +1,19 @@
-python train.py --dataset_name gigaword --model_type t5
-python train.py --dataset_name gigaword --model_type roberta
-python train.py --dataset_name gigaword --model_type bart_large
-python train.py --dataset_name gigaword --model_type distill_bart
-python train.py --dataset_name gigaword --model_type pegasus
+python train.py --dataset_name gigaword --model_type t5 --eval_ok True
+python train.py --dataset_name gigaword --model_type roberta --eval_ok True
+python train.py --dataset_name gigaword --model_type bart_large --eval_ok True
+python train.py --dataset_name gigaword --model_type distill_bart --eval_ok True
+python train.py --dataset_name gigaword --model_type pegasus --eval_ok True
 
 
-python train.py --dataset_name xsum --model_type t5_small
-python train.py --dataset_name xsum --model_type t5
-python train.py --dataset_name xsum --model_type roberta
-python train.py --dataset_name xsum --model_type bart_large
-python train.py --dataset_name xsum --model_type bart_large_sum
-python train.py --dataset_name xsum --model_type distill_bart
-python train.py --dataset_name xsum --model_type pegasus
+python train.py --dataset_name xsum --model_type t5_small --eval_ok True
+python train.py --dataset_name xsum --model_type t5 --eval_ok True
+python train.py --dataset_name xsum --model_type roberta --eval_ok True
+python train.py --dataset_name xsum --model_type bart_large --eval_ok True
+python train.py --dataset_name xsum --model_type bart_large_sum --eval_ok True
+python train.py --dataset_name xsum --model_type distill_bart --eval_ok True
+python train.py --dataset_name xsum --model_type pegasus --eval_ok True
 
-python train.py --dataset_name news --model_type t5_small
+python train.py --dataset_name news --model_type t5_small --eval_ok True
 python train.py --dataset_name news --model_type t5
 python train.py --dataset_name news --model_type roberta
 python train.py --dataset_name news --model_type bart_large

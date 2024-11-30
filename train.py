@@ -841,6 +841,8 @@ if __name__ == '__main__' :
     parser.add_argument('--raw_csv', type=str,
                         default='/mnt/hdd/karmpatel/naman/demo/DLNLP_Project_Data/news/news_summary_more.csv',
                         help="raw csv file details")
+    parser.add_argument('--eval_ok', type= bool,
+                        default = True, help = 'Default option is True, if it is false and create the train and validation data accordingly as present in dataset folder for xsum and gigaword')
 
     # ------------------ Model Arguments ---------------------------------
     parser.add_argument('--model_type', type= str, default= 'pegasus',
